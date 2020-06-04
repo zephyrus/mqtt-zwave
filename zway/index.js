@@ -1,0 +1,191 @@
+const EventEmitter = require('events');
+const request = require('request');
+const Socket = require('./socket');
+const { ZWayDevice } = require('./device');
+
+class ZWay extends EventEmitter {
+
+	constructor({ host, username, password } = {}) {
+		super();
+
+		this.port = 8083;
+		this.host = host;
+		this.username = username;
+		this.password = password;
+
+		this.session = undefined;
+
+		this.state = 0;
+		this.failure = false;
+
+		this.devices = [];
+
+		this.load()
+			.then(() => {
+				this.state = 0;
+
+				this.socket = new Socket({
+					host: this.host,
+					port: this.port,
+				});
+
+				this.socket.on('message', (payload) => this.socketMessage(payload));
+			})
+			.catch((e) => {
+				this.failure = true;
+				this.emit('error', e);
+			});
+	}
+
+	path(path) {
+		return `http://${this.host}:${this.port}${path}`;
+	}
+
+	request(path, opts = {}) {
+		const req = {
+			method: 'GET',
+			uri: this.path(path),
+			...opts,
+		};
+
+		console.log(req.uri);
+
+		return new Promise((resolve, reject) => request(req, (err, response) => {
+			if (err) return reject(err);
+
+			try {
+				if (response.body) {
+					response.body = JSON.parse(response.body);
+				}
+
+				return resolve(response);
+			} catch (e) {
+				return reject(e);
+			}
+		}));
+	}
+
+	call(path, opts = {}) {
+		const precondition = this.session
+			? Promise.resolve()
+			: this.login();
+
+		return precondition
+			.then(() => {
+				const headers = {
+					Cookie: `ZWAYSession=${this.session}`,
+				};
+
+				return this.request(path, {
+					headers,
+					...opts,
+				}).then((response) => {
+					if (response.statusCode === 401) {
+						return this.login().then(() => this.request(path, {
+							headers,
+							...opts,
+						}));
+					}
+
+					return response;
+				});
+			});
+	}
+
+	login() {
+		const opts = {
+			method: 'POST',
+			body: JSON.stringify({
+				login: this.username,
+				password: this.password,
+			}),
+		};
+
+		return this.request('/ZAutomation/api/v1/login', opts)
+			.then((response) => {
+				if (response.statusCode !== 200) return Promise.reject(new Error('authentication failed'));
+
+				this.session = response.body.data.sid;
+
+				this.emit('login');
+
+				return Promise.resolve();
+			});
+	}
+
+	device(id) {
+		return this.devices.find((d) => d.id === id);
+	}
+
+	register(id, data) {
+		const device = new ZWayDevice(this, id, data);
+		this.devices.push(device);
+
+		this.emit('device', device);
+
+		device.on('change', (key) => {
+			if (this.state > 0) return;
+
+			this.emit('change', device, key);
+		});
+
+		return device;
+	}
+
+	load() {
+		this.state = 1;
+
+		return this.call('/ZAutomation/api/v1/devices')
+			.then((response) => {
+				if (response.statusCode !== 200) return Promise.reject();
+
+				return response.body.data.devices;
+			})
+			.then((data) => data
+				.filter((d) => d.visibility && d.nodeId)
+				.reduce((res, d) => {
+					if (!res[d.nodeId]) res[d.nodeId] = [];
+
+					res[d.nodeId].push({
+						key: d.id,
+						name: d.deviceType,
+						value: d.metrics.level,
+					});
+
+					return res;
+				}, {}))
+			.then((devices) => Object.keys(devices).forEach((id) => {
+				const device = this.device(id);
+
+				if (!device) {
+					return this.register(id, devices[id]);
+				}
+
+				devices[id].forEach(({ key, ...value }) => device.set(key, value));
+
+				return device;
+			}));
+	}
+
+	socketMessage(data) {
+		const device = this.devices.find((d) => d.props.find((p) => p.key === data.source));
+
+		if (!device) return;
+
+		device.set(data.source, {
+			value: data.message.l,
+		});
+	}
+
+	command(id, command, value) {
+		const opts = {
+			method: 'GET',
+			qs: (value === undefined ? undefined : value),
+		};
+
+		return this.call(`/ZAutomation/api/v1/devices/${id}/command/${command}`, opts);
+	}
+
+}
+
+module.exports = { ZWay };
