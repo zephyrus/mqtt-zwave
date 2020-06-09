@@ -13,17 +13,17 @@ class ZWay extends EventEmitter {
 		this.username = username;
 		this.password = password;
 
-		this.session = undefined;
-
-		this.state = 0;
+		this.state = 2; // not connected
 		this.failure = false;
 
 		this.devices = [];
 	}
 
 	connect() {
+		this.session = undefined;
+
 		if (this.socket) {
-			this.state = 2;
+			this.state = 1; // reconnecting
 
 			this.socket.close();
 			this.socket = undefined;
@@ -31,7 +31,7 @@ class ZWay extends EventEmitter {
 
 		return this.load()
 			.then(() => {
-				this.state = 0;
+				this.state = 0; // connected
 
 				this.socket = new Socket({
 					host: this.host,
@@ -142,8 +142,6 @@ class ZWay extends EventEmitter {
 	}
 
 	load() {
-		this.state = 1;
-
 		return this.call('/ZAutomation/api/v1/devices')
 			.then((response) => {
 				if (response.statusCode !== 200) return Promise.reject();
