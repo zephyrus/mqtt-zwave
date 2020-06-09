@@ -43,7 +43,8 @@ const error = (type, ...args) => console.error(format(type, args));
 mqtt.on('connect', () => log('mqtt', `connected to ${config.mqtt.host}`));
 
 zway.connect();
-setInterval(() => zway.connect(), 3600000);
+setInterval(() => zway.load(), config.zway.refresh);
+setInterval(() => zway.connect(), config.zway.reconnect);
 
 zway.on('login', () => {
 	if (online) return;

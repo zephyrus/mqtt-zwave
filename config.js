@@ -12,6 +12,8 @@ module.exports.config = {
 		host: process.env.ZWAY_HOST,
 		username: process.env.ZWAY_USERNAME,
 		password: process.env.ZWAY_PASSWORD,
+		refresh: process.env.ZWAY_REFRESH || 10000,
+		reconnect: process.env.ZWAY_RECONNECT || 3600000,
 	},
 
 };
