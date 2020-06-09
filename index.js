@@ -3,6 +3,7 @@ const { ZWay } = require('./zway');
 const { config } = require('./config');
 const { version } = require('./package');
 
+let online = false;
 const subsciptions = {};
 
 const topics = {
@@ -41,8 +42,15 @@ const error = (type, ...args) => console.error(format(type, args));
 
 mqtt.on('connect', () => log('mqtt', `connected to ${config.mqtt.host}`));
 
+zway.connect();
+setInterval(() => zway.connect(), 3600000);
+
 zway.on('login', () => {
-	log('zway', `connected to ${config.zway.host}`);
+	if (online) return;
+
+	log('zway', `authenticated on ${config.zway.host}`);
+
+	online = true;
 
 	mqtt.publish(topics.state(), JSON.stringify({
 		online: true,
@@ -70,6 +78,14 @@ zway.on('change', (device) => {
 	});
 });
 
+zway.on('command', (id, command, value) => {
+	log('zway', `command [${id}, ${command}, ${value}]`);
+});
+
+zway.on('response', (path, statusCode) => {
+	log('zway', `response ${statusCode} for ${path}`);
+});
+
 mqtt.on('message', (topic, data) => {
 	const device = subsciptions[topic];
 
@@ -91,6 +107,16 @@ mqtt.on('message', (topic, data) => {
 zway.on('error', (e) => {
 	error('zway', 'zway error');
 	error('zway', `  > ${e.toString()}`);
+
+	if (!online) return;
+
+	online = false;
+
+	zway.connect();
+
+	mqtt.publish(topics.state(), JSON.stringify({
+		online,
+	}), { retain: true });
 });
 
 mqtt.on('error', (e) => {

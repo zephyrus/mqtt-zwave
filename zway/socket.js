@@ -41,14 +41,12 @@ class ZWaySocket extends EventEmitter {
 	}
 
 	connect() {
-		console.log('connecting...');
 		if (this.retries++ >= this.reconnectMaxRetries) {
 			this.emit('reconnect-max-retries', this.reconnectMaxRetries);
 		}
 
 		try {
 			const address = this.buildAddress();
-			console.log(address);
 			this.socket = new WebSocket(address);
 		} catch (err) {
 			this.onClose(err);
@@ -136,7 +134,6 @@ class ZWaySocket extends EventEmitter {
 	}
 
 	onMessage(data) {
-		console.log(data);
 		const payload = this.parseData(data);
 		if (payload) {
 			this.emit('message', payload);

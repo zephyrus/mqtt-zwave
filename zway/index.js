@@ -19,8 +19,17 @@ class ZWay extends EventEmitter {
 		this.failure = false;
 
 		this.devices = [];
+	}
 
-		this.load()
+	connect() {
+		if (this.socket) {
+			this.state = 2;
+
+			this.socket.close();
+			this.socket = undefined;
+		}
+
+		return this.load()
 			.then(() => {
 				this.state = 0;
 
@@ -47,8 +56,6 @@ class ZWay extends EventEmitter {
 			uri: this.path(path),
 			...opts,
 		};
-
-		console.log(req.uri);
 
 		return new Promise((resolve, reject) => request(req, (err, response) => {
 			if (err) return reject(err);
@@ -80,6 +87,8 @@ class ZWay extends EventEmitter {
 					headers,
 					...opts,
 				}).then((response) => {
+					this.emit('response', path, response.statusCode);
+
 					if (response.statusCode === 401) {
 						return this.login().then(() => this.request(path, {
 							headers,
@@ -103,7 +112,7 @@ class ZWay extends EventEmitter {
 
 		return this.request('/ZAutomation/api/v1/login', opts)
 			.then((response) => {
-				if (response.statusCode !== 200) return Promise.reject(new Error('authentication failed'));
+				if (response.statusCode !== 200) return this.emit('error', 'authentication failed');
 
 				this.session = response.body.data.sid;
 
@@ -182,6 +191,8 @@ class ZWay extends EventEmitter {
 			method: 'GET',
 			qs: (value === undefined ? undefined : value),
 		};
+
+		this.emit('command', id, command, value);
 
 		return this.call(`/ZAutomation/api/v1/devices/${id}/command/${command}`, opts);
 	}
