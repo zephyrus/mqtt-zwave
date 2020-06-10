@@ -39,11 +39,16 @@ class ZWay extends EventEmitter {
 				});
 
 				this.socket.on('message', (payload) => this.socketMessage(payload));
+				this.socket.on('error', (e) => this.fail(e));
 			})
-			.catch((e) => {
-				this.failure = true;
-				this.emit('error', e);
-			});
+			.catch((e) => this.fail(e));
+	}
+
+	fail(e){
+		this.failure = true;
+		this.emit('error', e);
+
+		setTimeout(() => this.connect(), 1000);
 	}
 
 	path(path) {
@@ -119,7 +124,8 @@ class ZWay extends EventEmitter {
 				this.emit('login');
 
 				return Promise.resolve();
-			});
+			})
+			.catch((e) => this.fail(e));
 	}
 
 	device(id) {
@@ -171,7 +177,8 @@ class ZWay extends EventEmitter {
 				devices[id].forEach(({ key, ...value }) => device.set(key, value));
 
 				return device;
-			}));
+			}))
+			.catch((e) => this.fail(e));
 	}
 
 	socketMessage(data) {
@@ -192,7 +199,8 @@ class ZWay extends EventEmitter {
 
 		this.emit('command', id, command, value);
 
-		return this.call(`/ZAutomation/api/v1/devices/${id}/command/${command}`, opts);
+		return this.call(`/ZAutomation/api/v1/devices/${id}/command/${command}`, opts)
+			.catch((e) => this.fail(e));
 	}
 
 }

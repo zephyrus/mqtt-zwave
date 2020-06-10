@@ -111,18 +111,12 @@ zway.on('error', (e) => {
 
 	online = false;
 
-	zway.connect();
-
 	mqtt.publish(topics.state(), JSON.stringify({
 		online,
 	}), { retain: true });
 });
 
 mqtt.on('error', (e) => {
-	error('mqtt', 'connection error');
+	error('mqtt', 'error');
 	error('mqtt', `  > ${e.toString()}`);
-
-	// exiting in case of error so
-	// supervisor can restart it
-	process.exit(1);
 });
