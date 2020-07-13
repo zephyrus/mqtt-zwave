@@ -3,6 +3,10 @@ const request = require('request');
 const Socket = require('./socket');
 const { ZWayDevice } = require('./device');
 
+const floatTypes = [
+	'device-temperature',
+];
+
 class ZWay extends EventEmitter {
 
 	constructor({ host, username, password } = {}) {
@@ -44,7 +48,7 @@ class ZWay extends EventEmitter {
 			.catch((e) => this.fail(e));
 	}
 
-	fail(e){
+	fail(e) {
 		this.failure = true;
 		this.emit('error', e);
 
@@ -161,7 +165,7 @@ class ZWay extends EventEmitter {
 
 					res[d.nodeId].push({
 						key: d.id,
-						name: d.deviceType,
+						name: d.probeType || d.deviceType,
 						value: d.metrics.level,
 					});
 
@@ -186,9 +190,13 @@ class ZWay extends EventEmitter {
 
 		if (!device) return;
 
-		device.set(data.source, {
-			value: data.message.l,
-		});
+		let value = data.message.l;
+
+		if (floatTypes.indexOf(data.type) >= 0) {
+			value = parseFloat(value);
+		}
+
+		device.set(data.source, { value });
 	}
 
 	command(id, command, value) {

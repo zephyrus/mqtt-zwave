@@ -82,6 +82,8 @@ zway.on('command', (id, command, value) => {
 });
 
 zway.on('response', (path, statusCode) => {
+	if (statusCode === 200) return;
+
 	log('zway', `response ${statusCode} for ${path}`);
 });
 
