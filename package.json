@@ -1,6 +1,6 @@
 {
 	"name": "mqtt-zwave",
-	"version": "0.0.7",
+	"version": "0.0.8",
 
 	"description": "MQTT integration for Z-Wave Z-Way Controller",
 	"author": "zephyrus",
