@@ -7,6 +7,11 @@ const floatTypes = [
 	'device-temperature',
 ];
 
+const parsePath = (path) => {
+	if (!path) return [];
+	return path.split('_')[2].split('-');
+}
+
 class ZWay extends EventEmitter {
 
 	constructor({ host, username, password } = {}) {
@@ -161,9 +166,15 @@ class ZWay extends EventEmitter {
 			.then((data) => data
 				.filter((d) => d.visibility && d.nodeId)
 				.reduce((res, d) => {
-					if (!res[d.nodeId]) res[d.nodeId] = [];
+					const path = parsePath(d.id);
 
-					res[d.nodeId].push({
+					const id = path[1] === '0'
+						? d.nodeId
+						: [d.nodeId, path[1]].join('/');
+
+					if (!res[id]) res[id] = [];
+
+					res[id].push({
 						key: d.id,
 						name: d.probeType || d.deviceType,
 						value: d.metrics.level,
